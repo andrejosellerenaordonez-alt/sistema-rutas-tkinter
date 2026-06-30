@@ -1,0 +1,152 @@
+import tkinter as tk
+from tkinter import messagebox
+
+Max_Rutas = 3
+Rutas_Asignadas = 0 
+
+base_datos_rutas = {
+    "motorizado1": [],
+    "motorizado2": [],
+    "motorizado3": []
+}
+
+usuario_activo = ""
+
+def iniciar_interfaz_login():
+    global ventana_login, entrada_usuario, entrada_clave
+    
+    ventana_login = tk.Tk()
+    ventana_login.title("Inicio de Sesión")
+    ventana_login.geometry("320x260")
+
+    tk.Label(ventana_login, text="SISTEMA DE RUTAS", font=("Arial", 14, "bold")).pack(pady=15)
+    
+    tk.Label(ventana_login, text="Usuario:").pack(pady=2)
+    entrada_usuario = tk.Entry(ventana_login, justify="center")
+    entrada_usuario.pack(pady=2)
+
+    tk.Label(ventana_login, text="Contraseña:").pack(pady=2)
+    entrada_clave = tk.Entry(ventana_login, show="*", justify="center")
+    entrada_clave.pack(pady=2)
+
+    tk.Button(ventana_login, text="Ingresar", command=procesar_login, bg="lightblue").pack(pady=20)
+    
+    ventana_login.mainloop()
+
+def procesar_login():
+    global usuario_activo
+    
+    usuario = entrada_usuario.get().strip().lower()
+    clave = entrada_clave.get().strip()
+    
+    usuarios_validos = ["admin", "motorizado1", "motorizado2", "motorizado3"]
+    
+    if usuario in usuarios_validos and clave == "1234":
+        usuario_activo = usuario
+        messagebox.showinfo("Acceso Concedido", f"¡Bienvenido, {usuario.capitalize()}!")
+        ventana_login.destroy()  
+        abrir_ventana_rutas()     
+    else:
+        messagebox.showerror("Error", "Usuario o contraseña incorrectos. (Use clave: 1234)")
+
+def cerrar_sesion(ventana_actual):
+    ventana_actual.destroy()  
+    iniciar_interfaz_login()  
+
+def admin_calcular_y_enviar():
+    global Rutas_Asignadas
+    
+    if Rutas_Asignadas >= Max_Rutas:
+        messagebox.showwarning("Límite Alcanzado", f"Ha alcanzado el límite máximo de {Max_Rutas} rutas asignadas por hoy.")
+        return
+
+    try:
+        km = float(entrada_km.get())
+        if km < 0:
+            messagebox.showerror("Error", "La distancia no puede ser negativa.")
+            return
+            
+        motorizado_afectado = ""
+        
+        if km >= 0 and km <= 50:
+            ruta = "Ruta 1 (0-50 km)"
+            destino = "Zona Norte / Centro de Quito"
+            motorizado_afectado = "motorizado1"
+            
+        elif km > 50 and km <= 100:
+            ruta = "Ruta 2 (50-100 km)"
+            destino = "Zona Valles / Cumbayá"
+            motorizado_afectado = "motorizado2"
+            
+        else:
+            ruta = "Ruta 3 (Mayor a 100 km)"
+            destino = "Zona Periférica / Sur de Quito"
+            motorizado_afectado = "motorizado3"
+            
+        num_viaje = len(base_datos_rutas[motorizado_afectado]) + 1
+        nuevo_registro = f"Viaje Número {num_viaje}: {ruta} hacia {destino} ({km} km)."
+        
+        base_datos_rutas[motorizado_afectado].append(nuevo_registro)
+        Rutas_Asignadas += 1
+        
+        label_resultado.config(text=f"¡{ruta} asignada a Motorizado {motorizado_afectado[-1]}!", fg="green")
+        label_contador.config(text=f"Rutas registradas: {Rutas_Asignadas} / {Max_Rutas}")
+        entrada_km.delete(0, tk.END)
+        
+        confirmacion = messagebox.askyesno(
+            "Acción de Registro", 
+            f"Se calculó la {ruta}.\n\n¿Desea ACTUALIZAR la base de datos y guardar esta ruta?\n\n(Si presiona 'No', se procederá a ELIMINAR este último registro)"
+        )
+        
+        if not confirmacion:
+            base_datos_rutas[motorizado_afectado].pop()
+            Rutas_Asignadas -= 1
+            label_resultado.config(text="Último registro eliminado por el Administrator.", fg="orange")
+            label_contador.config(text=f"Rutas registradas: {Rutas_Asignadas} / {Max_Rutas}")
+            messagebox.showinfo("Sistema", "El registro ha sido ELIMINADO de la lista correctamente.")
+
+    except ValueError:
+        messagebox.showerror("Error", "Por favor, ingrese un número válido de kilómetros.")
+
+def abrir_ventana_rutas():
+    global entrada_km, label_resultado, label_contador
+    
+    ventana_rutas = tk.Tk()
+    ventana_rutas.title(f"Panel - {usuario_activo.upper()}")
+    ventana_rutas.geometry("480x420")
+    
+    tk.Label(ventana_rutas, text=f"SESIÓN ACTIVA: {usuario_activo.upper()}", font=("Arial", 12, "bold"), fg="blue").pack(pady=15)
+    
+    if usuario_activo == "admin":
+        tk.Label(ventana_rutas, text="Ingrese la distancia de la entrega en km:", font=("Arial", 10)).pack(pady=5)
+        entrada_km = tk.Entry(ventana_rutas, justify="center", font=("Arial", 11))
+        entrada_km.pack(pady=5)
+        
+        tk.Button(ventana_rutas, text="Calcular y Asignar Ruta", command=admin_calcular_y_enviar, bg="lightgreen", font=("Arial", 10, "bold")).pack(pady=15)
+        
+        label_resultado = tk.Label(ventana_rutas, text="Ingrese km para distribuir automáticamente.", font=("Arial", 10, "italic"), fg="gray")
+        label_resultado.pack(pady=5)
+        
+        label_contador = tk.Label(ventana_rutas, text=f"Rutas registradas: {Rutas_Asignadas} / {Max_Rutas}", font=("Arial", 10, "bold"), fg="darkblue")
+        label_contador.pack(pady=10)
+        
+    else:
+        rutas_personales = base_datos_rutas.get(usuario_activo, [])
+        
+        if len(rutas_personales) > 0:
+            tk.Label(ventana_rutas, text="HISTORIAL DE TUS RUTAS ASIGNADAS:", font=("Arial", 11, "bold"), fg="green").pack(pady=10)
+            
+            frame_historial = tk.Frame(ventana_rutas, bg="#f4f4f4", relief="groove", bd=2)
+            frame_historial.pack(pady=10, fill="both", expand=True, padx=30)
+            
+            for r in rutas_personales:
+                tk.Label(frame_historial, text=r, font=("Arial", 10, "bold"), fg="#333333", bg="#f4f4f4", anchor="w", justify="left").pack(pady=4, padx=10, fill="x")
+        else:
+            tk.Label(ventana_rutas, text="No tienes ninguna ruta asignada por el administrador todavía.", font=("Arial", 11, "italic"), fg="gray").pack(pady=80)
+
+    boton_logout = tk.Button(ventana_rutas, text="Cerrar Sesión / Cambiar de Usuario", command=lambda: cerrar_sesion(ventana_rutas), bg="#ff9999", fg="black")
+    boton_logout.pack(side="bottom", pady=25)
+        
+    ventana_rutas.mainloop()
+
+iniciar_interfaz_login()
